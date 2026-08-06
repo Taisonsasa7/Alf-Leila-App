@@ -1,6 +1,74 @@
 import 'package:flutter/material.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
+  @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool hasFreeAvatarGenerated = false;
+  String currentAvatarPreset = "Default";
+  int userCoins = 10000;
+
+  void _simulateAvatarGeneration() {
+    final int cost = hasFreeAvatarGenerated ? 100 : 0;
+
+    if (userCoins < cost) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('عذراً، رصيدك غير كافٍ لتعديل الصورة الرمزية ثلاثية الأبعاد!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Color(0xFF1E1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.cyanAccent)),
+                SizedBox(height: 20),
+                Text(
+                  'جاري تحليل الصورة والملامح ومطابقة الصورة الرمزية ثلاثية الأبعاد...',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Cairo'),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    // Simulate AI generation delay
+    Future.delayed(Duration(seconds: 3), () {
+      Navigator.pop(context); // Close loading dialog
+      setState(() {
+        userCoins -= cost;
+        hasFreeAvatarGenerated = true;
+        currentAvatarPreset = "Cyberpunk AI Likeness";
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cost == 0
+              ? 'تهانينا! تم توليد صورتك الرمزية ثلاثية الأبعاد الأولى مجاناً بنجاح!'
+              : 'تم تحديث الرمزية ثلاثية الأبعاد بنجاح، وخصم 100 عملة.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -31,9 +99,69 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                     Spacer(),
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+                    GestureDetector(
+                      onTap: _simulateAvatarGeneration,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+                          ),
+                          Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(color: Colors.cyan, shape: BoxShape.circle),
+                            child: Icon(Icons.add_a_photo, size: 10, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // AI Likeness Avatar Customization Banner
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF12005E)]),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: Colors.cyan.withOpacity(0.3), blurRadius: 10, spreadRadius: 1),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.face_retouching_natural, color: Colors.white, size: 30),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'توليد رمزيتك ثلاثية الأبعاد بالذكاء الاصطناعي',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'Cairo'),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'النمط الحالي: $currentAvatarPreset',
+                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onPressed: _simulateAvatarGeneration,
+                      child: Text(
+                        hasFreeAvatarGenerated ? 'تحديث (🪙100)' : 'توليد (مجاني)',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
+                      ),
                     ),
                   ],
                 ),
@@ -41,7 +169,7 @@ class ProfileScreen extends StatelessWidget {
 
               // قسم التأثيرات والرتبة والعرش
               Container(
-                margin: EdgeInsets.symmetric(horizontal: 16),
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [Color(0xFF2A1135), Color(0xFF140D22)]),
@@ -62,7 +190,7 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(height: 15),
+              SizedBox(height: 10),
 
               // عدادات (الأصدقاء، فالو، المتابعون، الزوار)
               Row(
