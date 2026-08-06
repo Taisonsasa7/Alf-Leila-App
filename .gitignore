@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -100,7 +99,6 @@ venv/
 ENV/
 env/
 /bin/
-/lib/
 /include/
 /share/
 
