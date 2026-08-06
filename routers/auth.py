@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+import random
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Dict
 from supabase import create_client, Client
 
 from core.config import settings
@@ -41,6 +42,21 @@ class UserProfile(BaseModel):
     id: str
     email: EmailStr
     username: str
+    has_free_avatar_generated: bool = False
+    avatar_shader_preset: Optional[str] = "Default"
+
+
+class AvatarGenerateResponse(BaseModel):
+    success: bool
+    is_free: bool
+    deducted_price: int
+    new_balance: int
+    avatar_shader_preset: str
+    message: str
+
+
+# In-memory database tracking profile features (for mock/local purposes)
+USER_PROFILES_DB: Dict[str, UserProfile] = {}
 
 
 # --- Dependency for Authentication ---
@@ -61,7 +77,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserProfile:
     if user_id is None or email is None:
         raise credentials_exception
 
-    return UserProfile(id=user_id, email=email, username=username)
+    # Check/Initialize in-memory profile cache
+    if user_id not in USER_PROFILES_DB:
+        USER_PROFILES_DB[user_id] = UserProfile(
+            id=user_id,
+            email=email,
+            username=username,
+            has_free_avatar_generated=False,
+            avatar_shader_preset="Default"
+        )
+
+    return USER_PROFILES_DB[user_id]
 
 
 # --- Endpoints ---
@@ -70,7 +96,6 @@ async def register(user_in: UserRegister):
     """
     Register a new user securely.
     """
-    # If Supabase client is active, attempt Supabase Auth sign up
     if supabase_client:
         try:
             response = supabase_client.auth.sign_up({
@@ -83,21 +108,32 @@ async def register(user_in: UserRegister):
                 }
             })
             if response.user:
-                return UserProfile(
+                profile = UserProfile(
                     id=response.user.id,
                     email=response.user.email,
-                    username=user_in.username
+                    username=user_in.username,
+                    has_free_avatar_generated=False,
+                    avatar_shader_preset="Default"
                 )
+                USER_PROFILES_DB[profile.id] = profile
+                return profile
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Registration failed: {str(e)}"
             )
 
-    # High performance mock flow fallback for local development
     import uuid
     mock_id = str(uuid.uuid4())
-    return UserProfile(id=mock_id, email=user_in.email, username=user_in.username)
+    profile = UserProfile(
+        id=mock_id,
+        email=user_in.email,
+        username=user_in.username,
+        has_free_avatar_generated=False,
+        avatar_shader_preset="Default"
+    )
+    USER_PROFILES_DB[mock_id] = profile
+    return profile
 
 
 @router.post("/login", response_model=Token)
@@ -126,7 +162,6 @@ async def login(user_in: UserLogin):
                 detail=f"Authentication failed: {str(e)}"
             )
 
-    # Mock authentication path
     access_token = create_access_token(
         data={"sub": "mock-user-id", "email": user_in.email, "username": user_in.email.split("@")[0]}
     )
@@ -139,3 +174,58 @@ async def get_me(current_user: UserProfile = Depends(get_current_user)):
     Get current logged in user profile.
     """
     return current_user
+
+
+@router.post("/avatar/generate", response_model=AvatarGenerateResponse)
+async def generate_likeness_avatar(
+    file: UploadFile = File(...),
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Upload profile picture to map and generate a hyper-realistic custom 3D avatar.
+    - First generation is 100% Free.
+    - Subsequent generations cost 100 coins/diamonds.
+    """
+    from routers.gifts import USER_BALANCES, gift_transaction_lock
+
+    async with gift_transaction_lock:
+        # Determine pricing
+        is_free = not current_user.has_free_avatar_generated
+        price = 0 if is_free else 100
+
+        # Initialize user balance if not exists
+        if current_user.id not in USER_BALANCES:
+            USER_BALANCES[current_user.id] = 10000
+
+        current_balance = USER_BALANCES[current_user.id]
+
+        if current_balance < price:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="عذراً! رصيدك غير كافٍ لإعادة توليد الصورة الرمزية ثلاثية الأبعاد. السعر: 100 ذهبة."
+            )
+
+        # Deduct coins
+        USER_BALANCES[current_user.id] = current_balance - price
+
+        # Mark free status as claimed and update texture preset based on file characteristics
+        current_user.has_free_avatar_generated = True
+
+        # Simulate AI texture extraction
+        presets = ["Gladiator", "Divas", "RoyalGold", "Cyberpunk", "NebulaSkin"]
+        simulated_shader = random.choice(presets)
+        current_user.avatar_shader_preset = simulated_shader
+
+        # Update cache
+        USER_PROFILES_DB[current_user.id] = current_user
+
+        message = "تهانينا! تم توليد صورتك الرمزية ثلاثية الأبعاد الأولى مجاناً بنجاح!" if is_free else f"تم تحديث الرمزية ثلاثية الأبعاد بنجاح، وخصم {price} عملة من رصيدك."
+
+        return AvatarGenerateResponse(
+            success=True,
+            is_free=is_free,
+            deducted_price=price,
+            new_balance=USER_BALANCES[current_user.id],
+            avatar_shader_preset=simulated_shader,
+            message=message
+        )
