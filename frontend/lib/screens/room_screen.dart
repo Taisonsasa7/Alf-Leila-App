@@ -20,17 +20,11 @@ class _RoomScreenState extends State<RoomScreen> {
   String? activeGiftBroadcast; // Stores current active live gift banner text
   String? activeGiftIcon;
 
-  // Mock list of chairs in the room
-  final List<Map<String, dynamic>> chairs = [
-    {"index": 0, "user": "Taison Sasa", "isMuted": false},
-    {"index": 1, "user": "راधे राधे", "isMuted": false},
-    {"index": 2, "user": "Odon", "isMuted": true},
-    {"index": 3, "user": "Surya", "isMuted": false},
-    {"index": 4, "user": null, "isMuted": false},
-    {"index": 5, "user": null, "isMuted": false},
-    {"index": 6, "user": null, "isMuted": false},
-    {"index": 7, "user": null, "isMuted": false},
-  ];
+  // Host adjustable display limits: 8, 16, or 25 active mic seats
+  int activeChairsLimit = 25;
+
+  // Mock list of up to 25 chairs in the room
+  late List<Map<String, dynamic>> chairs;
 
   // Modular customizable Gifts catalog
   final List<Map<String, dynamic>> giftCatalog = [
@@ -39,6 +33,20 @@ class _RoomScreenState extends State<RoomScreen> {
     {"id": "gift_supercar", "name": "سيارة (Car)", "price": 1000, "icon": "🏎️"},
     {"id": "gift_castle", "name": "قصر (Castle)", "price": 5000, "icon": "🏰"},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize 25 total chairs
+    chairs = List.generate(25, (i) {
+      return {
+        "index": i,
+        "user": i == 0 ? "Taison Sasa" : (i == 1 ? "راधे राधे" : (i == 2 ? "Odon" : (i == 3 ? "Surya" : null))),
+        "isMuted": i == 2 ? true : false,
+        "mediaState": i == 0 ? "Both" : "Voice", // Voice, Camera, Both, None
+      };
+    });
+  }
 
   void _sendGift(Map<String, dynamic> gift, String receiverName) {
     final price = gift['price'] as int;
@@ -169,8 +177,87 @@ class _RoomScreenState extends State<RoomScreen> {
     );
   }
 
+  // Allow seated participants to toggle their active media states: Voice, Camera, Both, or None
+  void _showMediaControlPanel(int index) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Color(0xFF1E1A2E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'التحكم بالبث الإعلامي للكرسي',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Cairo'),
+              ),
+              Divider(color: Colors.grey.withOpacity(0.3), height: 25),
+              ListTile(
+                leading: Icon(Icons.mic, color: Colors.blueAccent),
+                title: Text('صوت فقط (Voice/Audio)', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  setState(() {
+                    chairs[index]['mediaState'] = "Voice";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.videocam, color: Colors.purpleAccent),
+                title: Text('كاميرا فقط (Camera/Video)', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  setState(() {
+                    chairs[index]['mediaState'] = "Camera";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.video_call, color: Colors.pinkAccent),
+                title: Text('صوت وكاميرا معاً (Both)', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  setState(() {
+                    chairs[index]['mediaState'] = "Both";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.mic_off, color: Colors.redAccent),
+                title: Text('كتم كلي (Mute/None)', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  setState(() {
+                    chairs[index]['mediaState'] = "None";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.exit_to_app, color: Colors.grey),
+                title: Text('مغادرة الكرسي الصوتي', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  setState(() {
+                    chairs[index]['user'] = null;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Render only up to the active chairs limit specified by the host (8, 16, or 25)
+    final activeChairs = chairs.take(activeChairsLimit).toList();
+
     return Scaffold(
       backgroundColor: Color(0xFF0F0B19),
       body: SafeArea(
@@ -205,8 +292,46 @@ class _RoomScreenState extends State<RoomScreen> {
                           ],
                         ),
                       ),
+                      // Dropdown for Host to scale dynamic mic seats limit (8, 16, or 25)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        margin: EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Color(0xFF1E1A2E),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: activeChairsLimit,
+                            dropdownColor: Color(0xFF1E1A2E),
+                            icon: Icon(Icons.arrow_drop_down, color: Colors.purpleAccent, size: 20),
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            items: [8, 16, 25].map((int val) {
+                              return DropdownMenuItem<int>(
+                                value: val,
+                                child: Text('كراسي: $val'),
+                              );
+                            }).toList(),
+                            onChanged: (int? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  activeChairsLimit = newValue;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('تم تعديل سعة كراسي الصوت النشطة إلى: $newValue كراسي'),
+                                    backgroundColor: Colors.purple,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                         decoration: BoxDecoration(
                           color: Color(0xFF1E1A2E),
                           borderRadius: BorderRadius.circular(12),
@@ -228,7 +353,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        SizedBox(height: 20),
+                        SizedBox(height: 15),
                         // Big Stage Host circle
                         Center(
                           child: Column(
@@ -245,52 +370,74 @@ class _RoomScreenState extends State<RoomScreen> {
                                         gradient: LinearGradient(colors: [Colors.amber, Colors.orange]),
                                       ),
                                       child: CircleAvatar(
-                                        radius: 40,
+                                        radius: 36,
                                         backgroundImage: NetworkImage('https://via.placeholder.com/150'),
                                       ),
                                     ),
                                     Container(
                                       padding: EdgeInsets.all(4),
                                       decoration: BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle),
-                                      child: Icon(Icons.mic, color: Colors.white, size: 16),
+                                      child: Icon(Icons.video_call, color: Colors.white, size: 14),
                                     ),
                                   ],
                                 ),
                               ),
-                              SizedBox(height: 8),
+                              SizedBox(height: 4),
                               Text(
                                 '${widget.hostUsername} (Host)',
-                                style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: 30),
+                        SizedBox(height: 20),
 
-                        // Chairs Grid
+                        // Chairs Grid (Dynamically rendering either 8, 16, or 25 chairs)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: GridView.builder(
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 4,
-                              crossAxisSpacing: 15,
-                              mainAxisSpacing: 20,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 15,
                               childAspectRatio: 0.85,
                             ),
-                            itemCount: chairs.length,
+                            itemCount: activeChairs.length,
                             itemBuilder: (context, index) {
-                              final chair = chairs[index];
+                              final chair = activeChairs[index];
                               final hasUser = chair['user'] != null;
+                              final mediaState = chair['mediaState'] ?? "Voice";
+
+                              IconData mediaIcon;
+                              Color mediaColor;
+                              if (mediaState == "Both") {
+                                mediaIcon = Icons.video_call_rounded;
+                                mediaColor = Colors.pinkAccent;
+                              } else if (mediaState == "Camera") {
+                                mediaIcon = Icons.videocam_rounded;
+                                mediaColor = Colors.purpleAccent;
+                              } else if (mediaState == "Voice") {
+                                mediaIcon = Icons.mic_rounded;
+                                mediaColor = Colors.blueAccent;
+                              } else {
+                                mediaIcon = Icons.mic_off_rounded;
+                                mediaColor = Colors.redAccent;
+                              }
 
                               return GestureDetector(
                                 onTap: () {
                                   if (hasUser) {
-                                    _showGiftPanel(chair['user']);
+                                    if (chair['user'] == "أنا") {
+                                      _showMediaControlPanel(index);
+                                    } else {
+                                      _showGiftPanel(chair['user']);
+                                    }
                                   } else {
                                     setState(() {
                                       chairs[index]['user'] = "أنا";
+                                      chairs[index]['mediaState'] = "Voice";
                                     });
                                   }
                                 },
@@ -300,36 +447,36 @@ class _RoomScreenState extends State<RoomScreen> {
                                       alignment: Alignment.bottomRight,
                                       children: [
                                         CircleAvatar(
-                                          radius: 26,
-                                          backgroundColor: hasUser ? Colors.pinkAccent.withOpacity(0.4) : Color(0xFF1E1A2E),
+                                          radius: 25,
+                                          backgroundColor: hasUser ? Colors.pinkAccent.withOpacity(0.3) : Color(0xFF1E1A2E),
                                           child: hasUser
                                               ? CircleAvatar(
-                                                  radius: 24,
+                                                  radius: 23,
                                                   backgroundImage: NetworkImage('https://via.placeholder.com/150'),
                                                 )
-                                              : Icon(Icons.add, color: Colors.grey, size: 20),
+                                              : Icon(Icons.add, color: Colors.grey, size: 18),
                                         ),
                                         if (hasUser)
                                           Container(
-                                            padding: EdgeInsets.all(3),
+                                            padding: EdgeInsets.all(2),
                                             decoration: BoxDecoration(
-                                              color: chair['isMuted'] ? Colors.red : Colors.green,
+                                              color: mediaColor,
                                               shape: BoxShape.circle,
                                             ),
                                             child: Icon(
-                                              chair['isMuted'] ? Icons.mic_off : Icons.mic,
+                                              mediaIcon,
                                               color: Colors.white,
                                               size: 10,
                                             ),
                                           ),
                                       ],
                                     ),
-                                    SizedBox(height: 6),
+                                    SizedBox(height: 4),
                                     Text(
                                       hasUser ? chair['user'] : '${chair['index'] + 1}',
                                       style: TextStyle(
                                         color: hasUser ? Colors.white : Colors.grey,
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         fontWeight: hasUser ? FontWeight.bold : FontWeight.normal,
                                       ),
                                       overflow: TextOverflow.ellipsis,
