@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'avatar_store_screen.dart';
 
 // --- Multi-Platform Platform Profile ---
 enum TargetPlatformType {
@@ -577,6 +578,18 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
                           ),
                         ),
 
+                        // Avatar Store direct shortcut button on top bar
+                        IconButton(
+                          icon: Icon(Icons.storefront_rounded, color: Colors.pinkAccent),
+                          tooltip: 'متجر خزانة الملابس والزينة',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => AvatarStoreScreen()),
+                            );
+                          },
+                        ),
+
                         // AR Glasses/High-End Device toggle button
                         IconButton(
                           icon: Icon(isARModeActive ? Icons.blur_on : Icons.view_in_ar, color: Colors.cyan),
@@ -953,14 +966,13 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
                           child: Text(
                             'LIVE',
                             style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -1179,19 +1191,16 @@ class Realistic3DAvatarPainter extends CustomPainter {
 
     // Gender-specific behavior animations
     if (behavior == "SmokingShisha" && gender == "Male") {
-      // Draw a transparent smoke cloud rising above the avatar
       final smokePaint = Paint()
         ..color = Colors.white.withOpacity(0.15 + sin(breathingValue * pi) * 0.08)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(center + Offset(radius * 0.4, -radius * 0.7), radius * 0.3, smokePaint);
     } else if (behavior == "FixingHair" && gender == "Female") {
-      // Draw female hand bone reaching up towards her hair on stage
       final armPaint = Paint()
         ..color = skinBase
         ..style = PaintingStyle.fill;
       canvas.drawCircle(center + Offset(-radius * 0.7, -radius * 0.4), radius * 0.15, armPaint);
     } else if (behavior == "SprayingPerfume" && gender == "Female") {
-      // Draw small glowing spray particles
       final particlesPaint = Paint()..color = Colors.cyanAccent.withOpacity(0.5 * breathingValue);
       canvas.drawCircle(center + Offset(radius * 0.5, radius * 0.3), 3, particlesPaint);
       canvas.drawCircle(center + Offset(radius * 0.6, radius * 0.4), 2, particlesPaint);
@@ -1200,7 +1209,6 @@ class Realistic3DAvatarPainter extends CustomPainter {
     // Interactive Device Props (Smartphone, Laptop, Headphones)
     final propPaint = Paint()..style = PaintingStyle.fill;
     if (prop == "Headphones") {
-      // Render headphones arch on top of ears
       propPaint.color = Colors.greenAccent;
       propPaint.strokeWidth = 4.0;
       propPaint.style = PaintingStyle.stroke;
@@ -1211,15 +1219,12 @@ class Realistic3DAvatarPainter extends CustomPainter {
         false,
         propPaint,
       );
-      // Earpads
       propPaint.style = PaintingStyle.fill;
       canvas.drawOval(Rect.fromCenter(center: center + Offset(-radius * 0.9, 0), width: radius * 0.2, height: radius * 0.4), propPaint);
       canvas.drawOval(Rect.fromCenter(center: center + Offset(radius * 0.9, 0), width: radius * 0.2, height: radius * 0.4), propPaint);
     } else if (prop == "Smartphone") {
-      // Render glowing smartphone held up
       propPaint.color = Colors.grey[800]!;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(center.dx + radius * 0.5, center.dy + radius * 0.2, radius * 0.35, radius * 0.6), Radius.circular(4)), propPaint);
-      // Screen glow
       propPaint.color = Colors.cyanAccent.withOpacity(0.4);
       canvas.drawRect(Rect.fromLTWH(center.dx + radius * 0.53, center.dy + radius * 0.25, radius * 0.29, radius * 0.5), propPaint);
     }
