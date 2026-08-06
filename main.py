@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import settings
-from routers import auth, rooms
+from routers import auth, rooms, gifts
 
 # Initialize FastAPI app with production metadata
 app = FastAPI(
@@ -28,6 +28,7 @@ app.add_middleware(
 # Include API Routes
 app.include_router(auth.router, prefix="/api")
 app.include_router(rooms.router, prefix="/api")
+app.include_router(gifts.router, prefix="/api")
 
 
 # --- Global High-Performance Exception Handlers ---

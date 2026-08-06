@@ -13,7 +13,6 @@ router = APIRouter(prefix="/rooms", tags=["Voice Rooms & Live Chairs"])
 room_state_lock = asyncio.Lock()
 
 # In-memory storage for rooms with live chairs
-# In production, this would reside in Redis with distributed locking (Redlock)
 ACTIVE_ROOMS_DB: Dict[str, dict] = {}
 
 
@@ -21,7 +20,8 @@ ACTIVE_ROOMS_DB: Dict[str, dict] = {}
 class RoomCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=50, description="The name of the audio room")
     description: Optional[str] = Field(None, max_length=200, description="Optional description of the room")
-    total_chairs: int = Field(10, ge=1, le=20, description="Number of audio chairs on stage")
+    total_chairs: int = Field(25, ge=1, le=25, description="Number of maximum audio chairs on stage (up to 25)")
+    active_chairs_limit: int = Field(25, ge=1, le=25, description="Initial active seat display limit (e.g., 8, 16, or 25)")
 
 
 class RoomJoin(BaseModel):
@@ -34,6 +34,7 @@ class ChairInfo(BaseModel):
     user_id: Optional[str] = None
     username: Optional[str] = None
     is_muted: bool = False
+    media_state: str = Field("Voice", description="Active media state on seat: Voice, Camera, Both, or None")
 
 
 class RoomInfo(BaseModel):
@@ -43,6 +44,7 @@ class RoomInfo(BaseModel):
     host_id: str
     host_username: str
     participants_count: int
+    active_chairs_limit: int = 25
     chairs: List[ChairInfo]
 
 
@@ -52,6 +54,7 @@ class RoomJoinResponse(BaseModel):
     token: str
     uid: int
     agora_app_id: str
+    active_chairs_limit: int
     chairs: List[ChairInfo]
 
 
@@ -60,28 +63,39 @@ class ChairAction(BaseModel):
     chair_index: int
 
 
+class CapacityAction(BaseModel):
+    room_id: str
+    active_chairs_limit: int = Field(25, ge=1, le=25, description="New active seat display limit (e.g., 8, 16, or 25)")
+
+
+class MediaAction(BaseModel):
+    room_id: str
+    chair_index: int
+    media_state: str = Field("Voice", description="Desired media state: Voice, Camera, Both, or None")
+
+
 # --- Endpoints ---
 
 @router.post("/create", response_model=RoomInfo, status_code=status.HTTP_201_CREATED)
 async def create_room(room_in: RoomCreate, current_user: UserProfile = Depends(get_current_user)):
     """
-    Create a new high-concurrency voice room with sound chairs.
-    Each room initializes a dedicated array of chairs (الكراسي الصوتية).
+    Create a new voice room supporting up to 25 mic seats with dynamic capacity limit control.
     """
     import uuid
 
     async with room_state_lock:
         room_id = str(uuid.uuid4())[:8]
 
-        # Initialize default audio chairs
+        # Initialize 25 total chairs
         chairs = [
-            ChairInfo(chair_index=i, user_id=None, username=None, is_muted=False)
+            ChairInfo(chair_index=i, user_id=None, username=None, is_muted=False, media_state="Voice")
             for i in range(room_in.total_chairs)
         ]
 
-        # Automatically assign the Host to Chair 0
+        # Automatically assign Host to Chair 0
         chairs[0].user_id = current_user.id
         chairs[0].username = current_user.username
+        chairs[0].media_state = "Both"  # Host starts with voice and video enabled
 
         room_info = RoomInfo(
             id=room_id,
@@ -90,6 +104,7 @@ async def create_room(room_in: RoomCreate, current_user: UserProfile = Depends(g
             host_id=current_user.id,
             host_username=current_user.username,
             participants_count=1,
+            active_chairs_limit=room_in.active_chairs_limit,
             chairs=chairs
         )
 
@@ -104,7 +119,7 @@ async def create_room(room_in: RoomCreate, current_user: UserProfile = Depends(g
 @router.post("/join", response_model=RoomJoinResponse)
 async def join_room(room_join: RoomJoin, current_user: UserProfile = Depends(get_current_user)):
     """
-    Join an existing voice room and obtain a secure Agora RTC voice token asynchronously.
+    Join a room and return the updated dynamic seat list and active capacity limits.
     """
     room_id = room_join.room_id
 
@@ -116,8 +131,6 @@ async def join_room(room_join: RoomJoin, current_user: UserProfile = Depends(get
             )
 
         room = ACTIVE_ROOMS_DB[room_id]
-
-        # Track active viewer count
         room["participants"][current_user.id] = current_user.username
         room["info"].participants_count = len(room["participants"])
 
@@ -144,6 +157,7 @@ async def join_room(room_join: RoomJoin, current_user: UserProfile = Depends(get
             token=token,
             uid=uid,
             agora_app_id=settings.AGORA_APP_ID,
+            active_chairs_limit=room["info"].active_chairs_limit,
             chairs=room["info"].chairs
         )
 
@@ -151,47 +165,36 @@ async def join_room(room_join: RoomJoin, current_user: UserProfile = Depends(get
 @router.post("/chair/occupy", response_model=RoomInfo)
 async def occupy_chair(action: ChairAction, current_user: UserProfile = Depends(get_current_user)):
     """
-    Async thread-safe endpoint for occupying a specific audio chair (الجلوس على الكرسي الصوتي).
-    Prevents two users from occupying the same chair concurrently.
+    Occupy a specific chair. Prevents double-booking.
     """
     room_id = action.room_id
     idx = action.chair_index
 
     async with room_state_lock:
         if room_id not in ACTIVE_ROOMS_DB:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Room not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
 
         room = ACTIVE_ROOMS_DB[room_id]
         chairs = room["info"].chairs
 
         if idx < 0 or idx >= len(chairs):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid chair index"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chair index")
 
-        # Check if the user is already on another chair
+        # Ensure user isn't on another chair
         for chair in chairs:
             if chair.user_id == current_user.id:
-                # Leave current chair first
                 chair.user_id = None
                 chair.username = None
                 chair.is_muted = False
+                chair.media_state = "Voice"
 
-        # Check if the target chair is occupied
         if chairs[idx].user_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This chair is already occupied"
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Chair occupied")
 
-        # Occupy chair
         chairs[idx].user_id = current_user.id
         chairs[idx].username = current_user.username
         chairs[idx].is_muted = False
+        chairs[idx].media_state = "Voice"
 
         return room["info"]
 
@@ -199,39 +202,89 @@ async def occupy_chair(action: ChairAction, current_user: UserProfile = Depends(
 @router.post("/chair/leave", response_model=RoomInfo)
 async def leave_chair(action: ChairAction, current_user: UserProfile = Depends(get_current_user)):
     """
-    Async endpoint to leave the voice chair (مغادرة الكرسي الصوتي والعودة للجمهور).
+    Leave an occupied chair.
     """
     room_id = action.room_id
     idx = action.chair_index
 
     async with room_state_lock:
         if room_id not in ACTIVE_ROOMS_DB:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Room not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
 
         room = ACTIVE_ROOMS_DB[room_id]
         chairs = room["info"].chairs
 
         if idx < 0 or idx >= len(chairs):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid chair index"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chair index")
 
-        # Verify the user is the one occupying it or is host
         if chairs[idx].user_id != current_user.id and room["info"].host_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to modify this chair"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-        # Leave chair
         chairs[idx].user_id = None
         chairs[idx].username = None
         chairs[idx].is_muted = False
+        chairs[idx].media_state = "Voice"
 
+        return room["info"]
+
+
+@router.post("/seats/capacity", response_model=RoomInfo)
+async def change_seats_capacity(action: CapacityAction, current_user: UserProfile = Depends(get_current_user)):
+    """
+    Dynamically scale active mic seats limit (e.g. 8, 16, or 25).
+    Only the Host can execute this operation.
+    """
+    room_id = action.room_id
+    limit = action.active_chairs_limit
+
+    async with room_state_lock:
+        if room_id not in ACTIVE_ROOMS_DB:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+        room = ACTIVE_ROOMS_DB[room_id]
+
+        # Verify host permissions
+        if room["info"].host_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="فقط صاحب الغرفة (Host) يمكنه تغيير سعة كراسي الصوت."
+            )
+
+        room["info"].active_chairs_limit = limit
+        return room["info"]
+
+
+@router.post("/seats/media", response_model=RoomInfo)
+async def change_seat_media_state(action: MediaAction, current_user: UserProfile = Depends(get_current_user)):
+    """
+    Allow any user sitting on an active mic seat to flexibly toggle their media state:
+    Voice (Audio only), Camera (Video only), Both, or None.
+    """
+    room_id = action.room_id
+    idx = action.chair_index
+    state = action.media_state
+
+    if state not in ["Voice", "Camera", "Both", "None"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid media state")
+
+    async with room_state_lock:
+        if room_id not in ACTIVE_ROOMS_DB:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+        room = ACTIVE_ROOMS_DB[room_id]
+        chairs = room["info"].chairs
+
+        if idx < 0 or idx >= len(chairs):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chair index")
+
+        # Verify user is actually sitting on this chair
+        if chairs[idx].user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="لا يمكنك تغيير الحالة الإعلامية لكرسي لا تجلس عليه."
+            )
+
+        chairs[idx].media_state = state
         return room["info"]
 
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'room_screen.dart';
 
 class PartyScreen extends StatelessWidget {
   @override
@@ -122,6 +123,7 @@ class PartyScreen extends StatelessWidget {
 
               // قائمة الغرف الحية (Dynamic Rooms List)
               RoomCardItem(
+                roomId: 'room_1',
                 userName: '🌿🌹 راधे राधे 🌹🦚',
                 roomName: 'Music Suasana',
                 userCount: 14,
@@ -131,6 +133,7 @@ class PartyScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               RoomCardItem(
+                roomId: 'room_2',
                 userName: '🎶🎧Music Suasana🤍',
                 roomName: 'family•🇮🇩•Ms]music suasana',
                 userCount: 29,
@@ -141,6 +144,7 @@ class PartyScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               RoomCardItem(
+                roomId: 'room_3',
                 userName: 'ॐḓODON☆SURYAḓROOMॐ',
                 roomName: 'most welcome',
                 userCount: 6,
@@ -150,6 +154,7 @@ class PartyScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               RoomCardItem(
+                roomId: 'room_4',
                 userName: '🎧Room420🎧',
                 roomName: 'STOP Harassing me 🙏🙏🙏',
                 userCount: 12,
@@ -166,6 +171,7 @@ class PartyScreen extends StatelessWidget {
 }
 
 class RoomCardItem extends StatelessWidget {
+  final String roomId;
   final String userName;
   final String roomName;
   final int userCount;
@@ -175,6 +181,7 @@ class RoomCardItem extends StatelessWidget {
   final bool isVipBorder;
 
   const RoomCardItem({
+    required this.roomId,
     required this.userName,
     required this.roomName,
     required this.userCount,
@@ -186,56 +193,70 @@ class RoomCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color(0xFF1E1A2E),
-        borderRadius: BorderRadius.circular(14),
-        border: isVipBorder ? Border.all(color: Colors.cyanAccent, width: 1.5) : null,
-      ),
-      child: Row(
-        children: [
-          // عداد المستخدمين وأيقونة المايك
-          Column(
-            children: [
-              Text('$userCount', style: TextStyle(color: Color(0xFFEC407A), fontWeight: FontWeight.bold, fontSize: 16)),
-              Icon(Icons.mic, color: Color(0xFFEC407A), size: 18),
-            ],
-          ),
-          SizedBox(width: 12),
-          // تفاصيل الغرفة واسم المستخدم
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(userName, style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-                SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text('🏳️', style: TextStyle(fontSize: 12)), // تمثيل علم الدولة
-                    SizedBox(width: 4),
-                    Expanded(child: Text(roomName, style: TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF4A148C),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text('Lv.$level', style: TextStyle(color: Colors.white, fontSize: 9)),
-                ),
-              ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RoomScreen(
+              roomId: roomId,
+              roomName: roomName,
+              hostUsername: userName,
             ),
           ),
-          SizedBox(width: 10),
-          // صورة المستخدم الديناميكية (Avatar)
-          CircleAvatar(
-            radius: 30,
-            backgroundImage: NetworkImage(avatarUrl),
-          ),
-        ],
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Color(0xFF1E1A2E),
+          borderRadius: BorderRadius.circular(14),
+          border: isVipBorder ? Border.all(color: Colors.cyanAccent, width: 1.5) : null,
+        ),
+        child: Row(
+          children: [
+            // عداد المستخدمين وأيقونة المايك
+            Column(
+              children: [
+                Text('$userCount', style: TextStyle(color: Color(0xFFEC407A), fontWeight: FontWeight.bold, fontSize: 16)),
+                Icon(Icons.mic, color: Color(0xFFEC407A), size: 18),
+              ],
+            ),
+            SizedBox(width: 12),
+            // تفاصيل الغرفة واسم المستخدم
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(userName, style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                  SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text('🏳️', style: TextStyle(fontSize: 12)), // تمثيل علم الدولة
+                      SizedBox(width: 4),
+                      Expanded(child: Text(roomName, style: TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Color(0xFF4A148C),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('Lv.$level', style: TextStyle(color: Colors.white, fontSize: 9)),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 10),
+            // صورة المستخدم الديناميكية (Avatar)
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: NetworkImage(avatarUrl),
+            ),
+          ],
+        ),
       ),
     );
   }
