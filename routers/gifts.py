@@ -296,37 +296,9 @@ async def send_gift(payload: GiftSend, current_user: UserProfile = Depends(get_c
         )
 
 
-@router.post("/custom/upload", response_model=GiftItem)
-async def upload_custom_gift(payload: CustomGiftUpload, current_user: UserProfile = Depends(get_current_user)):
+@router.get("/events/{room_id}", response_model=List[dict])
+async def get_room_gift_events(room_id: str):
     """
-    Custom Tab: Allows users to dynamically register/upload custom gifts or custom asset metadata.
+    Retrieve real-time gift broadcast feed events for a given room.
     """
-    import uuid
-    custom_id = f"custom_gift_{uuid.uuid4().hex[:6]}"
-
-    new_gift = GiftItem(
-        id=custom_id,
-        name=payload.name,
-        category="Custom",
-        price=payload.price,
-        emoji_icon=payload.emoji_icon,
-        description=payload.description,
-        culture_origin="UserCustom",
-        physics_effects=["3DParticle", "CustomGlow"]
-    )
-
-    GIFT_MARKETPLACE_CATALOG[custom_id] = new_gift
-    return new_gift
-
-
-@router.get("/consumption/{user_id}")
-async def get_dining_consumption_state(user_id: str):
-    """
-    Retrieve active physical food/beverage dining physics state (mesh scale, steam level, seconds remaining).
-    """
-    state = ACTIVE_CONSUMPTION_STATES.get(user_id)
-    if state:
-        # Simulate local decrement check on polling
-        import time
-        return state
-    return {"active": False}
+    return ROOM_GIFT_EVENTS.get(room_id, [])

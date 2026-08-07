@@ -27,210 +27,36 @@ class RoomScreen extends StatefulWidget {
   _RoomScreenState createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
-  int userCoins = 10000;
-  String? activeGiftBroadcast;
+class _RoomScreenState extends State<RoomScreen> {
+  int userCoins = 10000; // Mock current user coin balance
+  String? activeGiftBroadcast; // Stores current active live gift banner text
   String? activeGiftIcon;
 
-  // Active capacity limits: 8, 16, or 25 seats
+  // Host adjustable display limits: 8, 16, or 25 active mic seats
   int activeChairsLimit = 25;
 
-  // Multi-platform Adaptive configuration
-  TargetPlatformType currentPlatform = TargetPlatformType.Mobile;
-  bool isARModeActive = false; // Augmented Reality projection mode toggle
-
-  // Private Music Listening Mode variables
-  bool isPrivateListeningMode = false;
-  String currentPrivateSong = "أغنية ألف ليلة وليلة - أم كلثوم";
-
-  // Dynamic Landmark Cinematic effects variables
-  String? activeCinematicLandmark;
-  String? activeCinematicLandmarkName;
-
-  // Interactive dining consumption loops per chair
-  // Tracks: {"user_id": {"item_icon": "🍛", "scale": 1.0, "time_left": 30}}
-  Map<String, Map<String, dynamic>> chairDiningStates = {};
-
-  // Skeletal 3D model properties & tick controllers
-  late AnimationController _idleBreathingController;
-  late AnimationController _windCurtainController; // Wind blower curtain animator
+  // Mock list of up to 25 chairs in the room
   late List<Map<String, dynamic>> chairs;
 
-  // Comprehensive Pluggable Gift Catalog categorized into immersive sections & tabs
-  final Map<String, List<Map<String, dynamic>>> comprehensiveGiftMarketplace = {
-    "معالم ألف ليلة": [
-      {"id": "egypt_pyramids", "name": "أهرامات الجيزة العظيمة", "price": 5000, "icon": "🔺", "origin": "مصر"},
-      {"id": "morocco_hassan", "name": "صومعة حسان بالرباط", "price": 4200, "icon": "🗼", "origin": "المغرب"},
-      {"id": "iraq_babylon", "name": "بابل الأثرية والأسوار", "price": 4900, "icon": "🦁", "origin": "العراق"},
-      {"id": "saudi_alula", "name": "مدائن صالح بالعلّا", "price": 5000, "icon": "🏜️", "origin": "السعودية"},
-      {"id": "yemen_sana_old", "name": "صنعاء القديمة الطينية", "price": 4800, "icon": "🏢", "origin": "اليمن"},
-    ],
-    "المأكولات": [
-      {"id": "dish_koshary", "name": "الكشري المصري الفواح", "price": 120, "icon": "🍜", "origin": "مصر", "effect": "Steam"},
-      {"id": "dish_kabsa", "name": "الكبسة السعودية الحارة", "price": 250, "icon": "🍛", "origin": "السعودية", "effect": "Steam"},
-      {"id": "dish_couscous", "name": "الكسكس والطاجين المغربي", "price": 300, "icon": "🍲", "origin": "المغرب", "effect": "Bubbling"},
-      {"id": "dish_mansaf", "name": "المنسف الأردني بالسمن", "price": 350, "icon": "🍖", "origin": "الأردن", "effect": "Steam"},
-      {"id": "dish_brik", "name": "البريك التونسي المقرمش", "price": 80, "icon": "🌮", "origin": "تونس", "effect": "Sizzle"},
-    ],
-    "المشروبات": [
-      {"id": "drink_atay", "name": "أتاي المغربي بالنعناع", "price": 50, "icon": "🍵", "origin": "المغرب", "effect": "LiquidPhysics"},
-      {"id": "drink_coffee", "name": "القهوة السعودية بالهيل", "price": 60, "icon": "☕", "origin": "السعودية", "effect": "LiquidPhysics"},
-      {"id": "drink_tea", "name": "كوب شاي كشري روقان", "price": 30, "icon": "🥛", "origin": "مصر", "effect": "LiquidPhysics"},
-    ],
-    "العملات الذهبية": [
-      {"id": "gift_perfume", "name": "عطر الياسمين الفاخر", "price": 150, "icon": "🍾"},
-      {"id": "gift_key", "name": "مفتاح الحظ الذهبي", "price": 30, "icon": "🔑"},
-      {"id": "gift_cash_gun", "name": "مسدس النقدية الطائر", "price": 500, "icon": "🔫"},
-      {"id": "gift_musical_box", "name": "صندوق الموسيقى الكلاسيكي", "price": 800, "icon": "📻"},
-    ],
-    "النبلاء": [
-      {"id": "gift_royal_crown", "name": "التاج الملكي المرصع", "price": 15000, "icon": "👑"},
-      {"id": "gift_dragon", "name": "التنين الأسطوري الطائر", "price": 50000, "icon": "🐉"},
-      {"id": "gift_luxury_yacht", "name": "اليخت الفاره لليالي", "price": 30000, "icon": "🚢"},
-    ],
-  };
+  // Modular customizable Gifts catalog
+  final List<Map<String, dynamic>> giftCatalog = [
+    {"id": "gift_rose", "name": "وردة (Rose)", "price": 10, "icon": "🌹"},
+    {"id": "gift_heart", "name": "قلب (Heart)", "price": 50, "icon": "💖"},
+    {"id": "gift_supercar", "name": "سيارة (Car)", "price": 1000, "icon": "🏎️"},
+    {"id": "gift_castle", "name": "قصر (Castle)", "price": 5000, "icon": "🏰"},
+  ];
 
   @override
   void initState() {
     super.initState();
-
-    // Idle breathing & blink micro-expression driver loop
-    _idleBreathingController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-
-    // Wind blowing curtain simulator loop
-    _windCurtainController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 5000),
-    )..repeat(reverse: true);
-
-    // Initialize 25 total chairs with 3D rotation, micro-expression, gender behaviors, and props
+    // Initialize 25 total chairs
     chairs = List.generate(25, (i) {
-      final bool isMale = i % 2 == 0;
-      final String gender = isMale ? "Male" : "Female";
-
-      final List<String> maleBehaviors = ["SmokingShisha", "SittingCrossedLegs", "ReadingSmartphone"];
-      final List<String> femaleBehaviors = ["FixingHair", "SprayingPerfume", "TypingLaptop"];
-      final String activeBehavior = isMale
-          ? maleBehaviors[i % maleBehaviors.length]
-          : femaleBehaviors[i % femaleBehaviors.length];
-
       return {
         "index": i,
         "user": i == 0 ? "Taison Sasa" : (i == 1 ? "راधे राधे" : (i == 2 ? "Odon" : (i == 3 ? "Surya" : null))),
         "isMuted": i == 2 ? true : false,
-        "mediaState": i == 0 ? "Both" : "Voice",
-        "gender": gender,
-        "behavior": activeBehavior,
-        "activeProp": i == 1 ? "Headphones" : (i == 3 ? "Smartphone" : "None"),
-
-        // 3D parameters
-        "chairRotationAngle": 0.0,
-        "isSpeaking": false,
-        "blinkState": 0.0,
-        "gestureState": "Idle",
-        "lipSyncAmplitude": 0.0,
-        "textureQuality": "High",
+        "mediaState": i == 0 ? "Both" : "Voice", // Voice, Camera, Both, None
       };
-    });
-
-    _startSimulatedSpeechFrequencyLoop();
-    _startSimulatedMicroBlinkExpressionsLoop();
-  }
-
-  @override
-  void dispose() {
-    _idleBreathingController.dispose();
-    _windCurtainController.dispose();
-    super.dispose();
-  }
-
-  void _startSimulatedSpeechFrequencyLoop() {
-    Future.doWhile(() async {
-      await Future.delayed(Duration(milliseconds: 250));
-      if (!mounted) return false;
-
-      setState(() {
-        for (var chair in chairs) {
-          if (chair['user'] != null && !chair['isMuted']) {
-            chair['isSpeaking'] = Random().nextBool();
-            chair['lipSyncAmplitude'] = chair['isSpeaking'] ? Random().nextDouble() : 0.0;
-          } else {
-            chair['isSpeaking'] = false;
-            chair['lipSyncAmplitude'] = 0.0;
-          }
-        }
-      });
-      return true;
-    });
-  }
-
-  void _startSimulatedMicroBlinkExpressionsLoop() {
-    Future.doWhile(() async {
-      await Future.delayed(Duration(milliseconds: 2000 + Random().nextInt(2000)));
-      if (!mounted) return false;
-
-      for (var chair in chairs) {
-        if (chair['user'] != null) {
-          chair['blinkState'] = 1.0;
-        }
-      }
-      setState(() {});
-      await Future.delayed(Duration(milliseconds: 150));
-      if (!mounted) return false;
-
-      for (var chair in chairs) {
-        chair['blinkState'] = 0.0;
-      }
-      setState(() {});
-      return true;
-    });
-  }
-
-  // Real-time 30-Second Dining/Consumption Animation loop
-  void _triggerInteractiveConsumptionPhysics(String username, Map<String, dynamic> gift) {
-    final String icon = gift['icon'];
-
-    // Set initial full dining mesh structure
-    setState(() {
-      chairDiningStates[username] = {
-        "icon": icon,
-        "scale": 1.0,
-        "timeLeft": 30,
-      };
-    });
-
-    // Dynamic countdown timer loop
-    Timer.periodic(Duration(seconds: 1), (timer) {
-      if (!mounted || chairDiningStates[username] == null) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        final state = chairDiningStates[username]!;
-        int left = state['timeLeft'] - 1;
-
-        if (left <= 0) {
-          timer.cancel();
-          chairDiningStates.remove(username); // Cleanly disappear on finish
-
-          // Trigger celebratory finish feedback
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('تم الانتهاء من تناول $icon بالكامل من قبل $username! 🎉🍰'),
-              backgroundColor: Colors.pink,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } else {
-          state['timeLeft'] = left;
-          // Mesh size/scale dynamically decreases step-by-step over the 30-second duration
-          state['scale'] = left / 30.0;
-        }
-      });
     });
   }
 
@@ -255,30 +81,10 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
       activeGiftIcon = gift['icon'];
     });
 
+    // Close gift panel
     Navigator.pop(context);
 
-    // If a Cuisine or Beverage, trigger 30-second interactive dining consumption logic
-    if (gift['id'].toString().startsWith('dish_') || gift['id'].toString().startsWith('drink_')) {
-      _triggerInteractiveConsumptionPhysics(receiverName, gift);
-    }
-
-    // If an Arab historical landmark, trigger massive room-wide 3D particle animations and cinematic lighting
-    if (gift['id'].toString().startsWith('egypt_') || gift['id'].toString().startsWith('morocco_') || gift['id'].toString().startsWith('iraq_') || gift['id'].toString().startsWith('saudi_') || gift['id'].toString().startsWith('yemen_')) {
-      setState(() {
-        activeCinematicLandmark = gift['icon'];
-        activeCinematicLandmarkName = gift['name'];
-      });
-
-      Future.delayed(Duration(seconds: 5), () {
-        if (mounted) {
-          setState(() {
-            activeCinematicLandmark = null;
-            activeCinematicLandmarkName = null;
-          });
-        }
-      });
-    }
-
+    // Show dynamic success alert
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('تم إرسال ${gift['name']} بنجاح!'),
@@ -287,6 +93,7 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
       ),
     );
 
+    // Clear live overlay gift broadcast after 4 seconds
     Future.delayed(Duration(seconds: 4), () {
       if (mounted) {
         setState(() {
@@ -297,145 +104,93 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
     });
   }
 
-  void _showComprehensiveGiftMarketplace(String receiverName) {
+  void _showGiftPanel(String receiverName) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Color(0xFF1E1A2E),
-      isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return DefaultTabController(
-          length: comprehensiveGiftMarketplace.keys.length + 1, // Tabs + Custom Upload tab
-          child: Container(
-            padding: EdgeInsets.all(16),
-            height: MediaQuery.of(context).size.height * 0.65,
-            child: Column(
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.monetization_on, color: Colors.amber, size: 20),
-                        SizedBox(width: 6),
-                        Text(
-                          'رصيدك: $userCoins ذهبة',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'إرسال إلى: $receiverName',
-                      style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-
-                // Categorised Marketplace Tabs
-                TabBar(
-                  isScrollable: true,
-                  indicatorColor: Colors.pinkAccent,
-                  labelColor: Colors.pinkAccent,
-                  unselectedLabelColor: Colors.grey,
-                  labelStyle: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 12),
-                  tabs: [
-                    ...comprehensiveGiftMarketplace.keys.map((tabName) => Tab(text: tabName)).toList(),
-                    Tab(text: "مخصص (Custom)"),
-                  ],
-                ),
-                SizedBox(height: 15),
-
-                // Grid View lists
-                Expanded(
-                  child: TabBarView(
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Panel Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      ...comprehensiveGiftMarketplace.values.map((items) {
-                        return GridView.builder(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 0.82,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                          itemCount: items.length,
-                          itemBuilder: (context, idx) {
-                            final item = items[idx];
-                            return InkWell(
-                              onTap: () => _sendGift(item, receiverName),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Color(0xFF0F0B19),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.1)),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(item['icon'], style: TextStyle(fontSize: 32)),
-                                    SizedBox(height: 5),
-                                    Text(
-                                      item['name'],
-                                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      '${item['price']} 🪙',
-                                      style: TextStyle(color: Colors.amber, fontSize: 10),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      }).toList(),
-
-                      // Custom (مخصص) upload tab interface
-                      Container(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.upload_file_rounded, color: Colors.cyanAccent, size: 50),
-                              SizedBox(height: 12),
-                              Text(
-                                'حمل هديتك أو تصميمك المخصص ثنائي/ثلاثي الأبعاد للغرفة',
-                                style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: 15),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('تم فتح واجهة رفع الملفات والمجسمات المخصصة بنجاح!')),
-                                  );
-                                },
-                                child: Text('اختر ملف الهدية (.glb, .png)', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                        ),
+                      Icon(Icons.monetization_on, color: Colors.amber, size: 20),
+                      SizedBox(width: 6),
+                      Text(
+                        'رصيدك: $userCoins ذهبة',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ],
                   ),
+                  Text(
+                    'إهداء إلى: $receiverName',
+                    style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Divider(color: Colors.grey.withOpacity(0.3), height: 20),
+
+              // Gift Grid View
+              GridView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 0.8,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
                 ),
-              ],
-            ),
+                itemCount: giftCatalog.length,
+                itemBuilder: (context, index) {
+                  final item = giftCatalog[index];
+                  return InkWell(
+                    onTap: () => _sendGift(item, receiverName),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF0F0B19),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(item['icon'], style: TextStyle(fontSize: 32)),
+                          SizedBox(height: 5),
+                          Text(
+                            item['name'],
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            '${item['price']} 🪙',
+                            style: TextStyle(color: Colors.amber, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 10),
+            ],
           ),
         );
       },
     );
   }
 
-  void _showChairActionControls(int index) {
+  // Allow seated participants to toggle their active media states: Voice, Camera, Both, or None
+  void _showMediaControlPanel(int index) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Color(0xFF1E1A2E),
