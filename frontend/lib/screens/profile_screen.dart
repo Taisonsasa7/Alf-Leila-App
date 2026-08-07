@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'avatar_store_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -269,12 +270,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SizedBox(height: 15),
 
               // قائمة الخيارات (القوائم الشخصية)
-              _buildMenuItem(Icons.card_giftcard, 'ادعو الأصدقاء'),
-              _buildMenuItem(Icons.military_tech, 'ميدالية'),
-              _buildMenuItem(Icons.store, 'المتجر'),
-              _buildMenuItem(Icons.checkroom, 'عناصر خاصتي'),
-              _buildMenuItem(Icons.chat_bubble_outline, 'ملاحظات'),
-              _buildMenuItem(Icons.settings, 'الإعدادات'),
+              _buildMenuItem(Icons.card_giftcard, 'ادعو الأصدقاء', () {}),
+              _buildMenuItem(Icons.military_tech, 'ميدالية', () {}),
+              _buildMenuItem(Icons.store, 'المتجر (Avatar Store)', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AvatarStoreScreen()),
+                );
+              }),
+              _buildMenuItem(Icons.checkroom, 'عناصر خاصتي', () {}),
+              _buildMenuItem(Icons.chat_bubble_outline, 'ملاحظات', () {}),
+              _buildMenuItem(Icons.settings, 'الإعدادات', () {}),
             ],
           ),
         ),
@@ -292,22 +298,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title) {
+  Widget _buildMenuItem(IconData icon, String title, VoidCallback onTap) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        color: Color(0xFF1E1A2E),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.pinkAccent, size: 20),
-          SizedBox(width: 12),
-          Text(title, style: TextStyle(color: Colors.white, fontSize: 14)),
-          Spacer(),
-          Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
-        ],
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+          decoration: BoxDecoration(
+            color: Color(0xFF1E1A2E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.pinkAccent, size: 20),
+              SizedBox(width: 12),
+              Text(title, style: TextStyle(color: Colors.white, fontSize: 14)),
+              Spacer(),
+              Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
+            ],
+          ),
+        ),
       ),
     );
   }
