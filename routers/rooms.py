@@ -74,6 +74,68 @@ class MediaAction(BaseModel):
     media_state: str = Field("Voice", description="Desired media state: Voice, Camera, Both, or None")
 
 
+# --- Room Dashboard, Level Progression & Security Schemas ---
+
+class RoomLevelProgressionInfo(BaseModel):
+    current_level: int = 1
+    xp_progress: int = 450
+    xp_required_for_next: int = 1000
+    daily_energy_today: int = 120
+    my_contribution: int = 35
+    # Daily room tasks (00:00 UTC Reset)
+    task_gold_diamonds_sent: int = 1500  # 1 gold diamond = 1 heat energy
+    task_silver_diamonds_sent: int = 3200
+    task_mic_minutes_accumulated: int = 45
+    # Daily member tasks
+    member_gifts_sent_diamonds: int = 1800
+    member_general_messages_count: int = 240
+    member_room_visits_count: int = 85
+
+
+class RoomDashboardInfo(BaseModel):
+    room_id: str
+    cover_image_url: str = "https://via.placeholder.com/150"
+    room_name: str
+    announcement: str = "مرحباً بكم في مجلس ألف ليلة وليلة المشرق والممتع!"
+    welcome_message: str = "أهلاً بك يا بطل في الغرفة الصوتية. نتمنى لك أطيب الأوقات ومحادثات ممتعة."
+    level: int = 1
+    xp_progress: int = 450
+    xp_required: int = 1000
+    members_count: int = 124
+    admins_count: int = 5
+    admins_limit: int = 10
+    room_mode: str = "دردشة"
+    room_theme: str = "الأرابيسك الذهبي"
+    room_password: str = ""
+    microphone_level_skin: str = "Default"
+    super_mic_enabled: bool = False
+
+    # Security/Permissions Lock status
+    entrance_mode_locked: bool = False  # requires Lv.4
+    microphone_mode_locked: bool = False  # requires Lv.3
+    public_chat_mode_locked: bool = False  # requires Lv.2
+
+    # Active user counts and logs
+    banned_chat_users_count: int = 3
+    kicked_users_log_count: int = 0
+    progression: RoomLevelProgressionInfo
+
+
+class RoomSettingsUpdate(BaseModel):
+    room_name: Optional[str] = Field(None, min_length=1, max_length=30)
+    cover_image_url: Optional[str] = None
+    announcement: Optional[str] = None
+    welcome_message: Optional[str] = Field(None, max_length=100)
+    room_mode: Optional[str] = None
+    room_theme: Optional[str] = None
+    room_password: Optional[str] = None
+    microphone_level_skin: Optional[str] = None
+    super_mic_enabled: Optional[bool] = None
+    entrance_mode_locked: Optional[bool] = None
+    microphone_mode_locked: Optional[bool] = None
+    public_chat_mode_locked: Optional[bool] = None
+
+
 # --- Endpoints ---
 
 @router.post("/create", response_model=RoomInfo, status_code=status.HTTP_201_CREATED)
@@ -108,9 +170,49 @@ async def create_room(room_in: RoomCreate, current_user: UserProfile = Depends(g
             chairs=chairs
         )
 
+        progression_data = RoomLevelProgressionInfo(
+            current_level=1,
+            xp_progress=450,
+            xp_required_for_next=1000,
+            daily_energy_today=120,
+            my_contribution=35,
+            task_gold_diamonds_sent=1500,
+            task_silver_diamonds_sent=3200,
+            task_mic_minutes_accumulated=45,
+            member_gifts_sent_diamonds=1800,
+            member_general_messages_count=240,
+            member_room_visits_count=85
+        )
+
+        dashboard_info = RoomDashboardInfo(
+            room_id=room_id,
+            cover_image_url="https://via.placeholder.com/150",
+            room_name=room_in.name,
+            announcement="مرحباً بكم في مجلس ألف ليلة وليلة المشرق والممتع!",
+            welcome_message="أهلاً بك يا بطل في الغرفة الصوتية. نتمنى لك أطيب الأوقات ومحادثات ممتعة.",
+            level=1,
+            xp_progress=450,
+            xp_required=1000,
+            members_count=124,
+            admins_count=5,
+            admins_limit=10,
+            room_mode="دردشة",
+            room_theme="الأرابيسك الذهبي",
+            room_password="",
+            microphone_level_skin="Default",
+            super_mic_enabled=False,
+            entrance_mode_locked=False,
+            microphone_mode_locked=False,
+            public_chat_mode_locked=False,
+            banned_chat_users_count=3,
+            kicked_users_log_count=0,
+            progression=progression_data
+        )
+
         ACTIVE_ROOMS_DB[room_id] = {
             "info": room_info,
-            "participants": {current_user.id: current_user.username}
+            "participants": {current_user.id: current_user.username},
+            "dashboard": dashboard_info
         }
 
         return room_info
@@ -295,3 +397,113 @@ async def list_active_rooms():
     """
     async with room_state_lock:
         return [room["info"] for room in ACTIVE_ROOMS_DB.values()]
+
+
+@router.get("/{room_id}/dashboard", response_model=RoomDashboardInfo)
+async def get_room_dashboard(room_id: str, current_user: UserProfile = Depends(get_current_user)):
+    """
+    Retrieve the complete Room Dashboard data, including progression levels,
+    daily missions reset details, and administrative controls.
+    """
+    async with room_state_lock:
+        if room_id not in ACTIVE_ROOMS_DB:
+            # For newly created rooms or local tests, build a fallback/mock dashboard
+            progression_data = RoomLevelProgressionInfo(
+                current_level=1,
+                xp_progress=450,
+                xp_required_for_next=1000,
+                daily_energy_today=120,
+                my_contribution=35
+            )
+            return RoomDashboardInfo(
+                room_id=room_id,
+                room_name="مجلس ألف ليلة وليلة",
+                progression=progression_data
+            )
+
+        return ACTIVE_ROOMS_DB[room_id]["dashboard"]
+
+
+@router.post("/{room_id}/settings/update", response_model=RoomDashboardInfo)
+async def update_room_settings(
+    room_id: str,
+    settings_in: RoomSettingsUpdate,
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Update the room parameters (Basic Info, Security settings, or custom styling themes).
+    Validates level permissions for special features.
+    """
+    async with room_state_lock:
+        if room_id not in ACTIVE_ROOMS_DB:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="الغرفة المطلوبة غير موجودة."
+            )
+
+        room = ACTIVE_ROOMS_DB[room_id]
+        dashboard: RoomDashboardInfo = room["dashboard"]
+
+        # Verify host / owner permission
+        if room["info"].host_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="عذراً! لا تملك صلاحية لتحديث إعدادات هذه الغرفة."
+            )
+
+        # Update settings fields if supplied
+        if settings_in.room_name is not None:
+            dashboard.room_name = settings_in.room_name
+            room["info"].name = settings_in.room_name
+
+        if settings_in.cover_image_url is not None:
+            dashboard.cover_image_url = settings_in.cover_image_url
+
+        if settings_in.announcement is not None:
+            dashboard.announcement = settings_in.announcement
+
+        if settings_in.welcome_message is not None:
+            dashboard.welcome_message = settings_in.welcome_message
+
+        if settings_in.room_mode is not None:
+            dashboard.room_mode = settings_in.room_mode
+
+        if settings_in.room_theme is not None:
+            dashboard.room_theme = settings_in.room_theme
+
+        if settings_in.room_password is not None:
+            dashboard.room_password = settings_in.room_password
+
+        if settings_in.microphone_level_skin is not None:
+            dashboard.microphone_level_skin = settings_in.microphone_level_skin
+
+        if settings_in.super_mic_enabled is not None:
+            # Super mic lock condition
+            dashboard.super_mic_enabled = settings_in.super_mic_enabled
+
+        if settings_in.entrance_mode_locked is not None:
+            if settings_in.entrance_mode_locked and dashboard.level < 4:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="عذراً! وضع دخول الغرفة المشروط يتطلب مستوى غرفة Lv.4 على الأقل."
+                )
+            dashboard.entrance_mode_locked = settings_in.entrance_mode_locked
+
+        if settings_in.microphone_mode_locked is not None:
+            if settings_in.microphone_mode_locked and dashboard.level < 3:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="عذراً! وضع كتم الميكروفون المشروط يتطلب مستوى غرفة Lv.3 على الأقل."
+                )
+            dashboard.microphone_mode_locked = settings_in.microphone_mode_locked
+
+        if settings_in.public_chat_mode_locked is not None:
+            if settings_in.public_chat_mode_locked and dashboard.level < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="عذراً! تقييد الدردشة العامة يتطلب مستوى غرفة Lv.2 على الأقل. يرجى تلبية شروط الترقية أولاً."
+                )
+            dashboard.public_chat_mode_locked = settings_in.public_chat_mode_locked
+
+        room["dashboard"] = dashboard
+        return dashboard
